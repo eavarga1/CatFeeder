@@ -1,5 +1,5 @@
 //CAT FEEDER 
-
+// just github test
 //2.10ESP8266 wifi uploading data to PVCloud
 //2.9 pin 3 and 2 changed by 0 and 1 for using it for ESP8266
 //2.8 water implementation 
@@ -68,7 +68,7 @@ void setup(){
 
 //for wifi module ESP8266
 
-   post = "POST /pvcloud_pre/backend/vse_add_value.php?account_id=24&app_id=86&api_key=dc0e291b03d34582d63bddbc0a5b98ee5bea913c&label=Gato";
+   post = "POST /pvcloud_backend/vse_add_value.php?account_id=24&app_id=86&api_key=dc0e291b03d34582d63bddbc0a5b98ee5bea913c&label=Gato";
    post += "&value=";
    post += consecutivo;
    post += "&type=NUMERICO&captured_datetime= HTTP/1.1\r\nHost: costaricamakers.com:80\r\n\r\n"; //Secuencia de solicitud POST
@@ -127,11 +127,11 @@ measure();       //subrutine to measure
 
 // secuence to dispense cat food, if only one direction no vibrations cause jams.
   move(2, 255, 1); //motor 2 vibrator, full speed, left
-  delay(300);
+  delay(400);
   move(2, 0, 1); //motor 2 vibrador, 0 speed, left
-  delay(150);
+  delay(400);
   move(2, 255, 0); //motor 2 vibrador, full speed, right
-  delay(300);
+  delay(400);
   move(2, 0, 1); //motor 2 vibrador, 0 speed, left 
   stop(); 
         
@@ -254,7 +254,7 @@ void leer() {
    }
 }  
 void wifiupload() {
-    post = "POST /pvcloud_pre/backend/vse_add_value.php?account_id=24&app_id=86&api_key=dc0e291b03d34582d63bddbc0a5b98ee5bea913c&label=Gato";
+    post = "POST /pvcloud_backend/vse_add_value.php?account_id=24&app_id=86&api_key=dc0e291b03d34582d63bddbc0a5b98ee5bea913c&label=Gato";
   post += "&value=";
   post += consecutivo;
   post += "&type=NUMERICO&captured_datetime= HTTP/1.1\r\nHost: costaricamakers.com:80\r\n\r\n"; //Secuencia de solicitud POST
