@@ -1,5 +1,5 @@
 //CAT FEEDER 
-// just github test2
+//3.0 change ESP to local program not default AT commands
 //2.10ESP8266 wifi uploading data to PVCloud
 //2.9 pin 3 and 2 changed by 0 and 1 for using it for ESP8266
 //2.8 water implementation 
@@ -13,7 +13,7 @@
 //motor B connected between B01 and B02
 
 #include <SoftwareSerial.h>
-SoftwareSerial mySerial(3, 2); //Pines: RX->D3, TX->D2
+//SoftwareSerial mySerial(3, 2); //Pines: RX->D3, TX->D2
 
 //pins declarations 
 int STBY = 10; //standby
@@ -32,6 +32,7 @@ const int BIN2 = 12; //Direction
 const int trig = 6;   //ultrasonic sensor pins
 const int echo = 7;
 const int led = 13;
+const int ESP = 2;
 
 long duration;     //holds pulse width proporsional to distance
 int cm = 0;        // holds distance in centimeters
@@ -63,41 +64,11 @@ void setup(){
   pinMode(trig, OUTPUT); 
   pinMode(echo, INPUT);
   pinMode(led, OUTPUT);
+  pinMode(ESP, OUTPUT);
   pinMode(water, OUTPUT);
   digitalWrite (water, HIGH);
 
-//for wifi module ESP8266
 
-   post = "POST /pvcloud_backend/vse_add_value.php?account_id=24&app_id=86&api_key=dc0e291b03d34582d63bddbc0a5b98ee5bea913c&label=Gato";
-   post += "&value=";
-   post += consecutivo;
-   post += "&type=NUMERICO&captured_datetime= HTTP/1.1\r\nHost: costaricamakers.com:80\r\n\r\n"; //Secuencia de solicitud POST
-
-  mySerial.begin(9600); //Inicializar puerto de comunicación con el ESP
-
-  mySerial.println("AT"); //Mensaje "Prueba" al ESP
-  leer(); //Leer datos devueltos por el ESP
-
-  //Los siguientes comandos deben ejecutarse sólo la primera vez
-  mySerial.println(rst); //Reiniciar ESP
-  leer();
-  
-  mySerial.println(modo); //Establecer modo del ESP
-  leer();
-  
-  mySerial.println(conectar); //Conectarse con la red
-  leer();
-
-  //Estos comandos se deben ejecutar cada vez que se desee comunicarse con el servidor
-  mySerial.println(server); //Establecer conexión
-  leer();
-  
-  trama = "AT+CIPSEND=" + String(post.length()); //Comando AT para establecer la longitud del mensaje 
-  mySerial.println(trama); //Establecer longitud
-  leer();
-
-  mySerial.println(post); //Enviar solicitud de POST
-  leer();
   
 }
 void loop(){
@@ -118,11 +89,11 @@ measure();       //subrutine to measure
 
       if (dist_count > 9) {  
 
-    //cat is detected but no dispense until it left (10 minutes)  
+ 
     digitalWrite (led, HIGH);  // to show cat is been detected while waiting 10 minutes   
-    //for (int variable2 = 10; variable2 <=1; variable2--) { 
+   
     delay(1000); //600000 delay of ten minutes before sequence to not scare the cat, 
-    //}  
+ 
      digitalWrite (led, LOW);
 
 // secuence to dispense cat food, if only one direction no vibrations cause jams.
@@ -171,15 +142,18 @@ measure();       //subrutine to measure
   delay(2000);
   move(2, 0, 1); //motor 2 vibrador, 0 speed, left
   stop();
-  wifiupload();
+
+ digitalWrite (ESP, HIGH);  //sending pulse to ESP, for upload data
+ delay(1000);
+ digitalWrite (ESP, LOW);
+  
+ // wifiupload();
   //delay(30000);
   digitalWrite(water, LOW);
   delay(420000);   //water pump on 420000
   digitalWrite(water, HIGH);
   delay(7200000);       // 7200000  2 hours delay to not overfeed cat can come during this time but not feed again
- //    for (int variable2 = 120; variable2 <=1; variable2--) { 
- // delay(60000); //delay of one minute
-   //  }
+
            }
 
            }
@@ -243,35 +217,14 @@ long microsecondsToCentimeters(long microseconds)
   }
 
  //Función para leer los datos enviados por el ESP
-void leer() {
-  unsigned long start = millis();
-  while (millis() - start < 10000) {
-    while (mySerial.available()>0){
-      a = mySerial.read();
+//void leer() {
+//  unsigned long start = millis();
+//  while (millis() - start < 10000) {
+//    while (mySerial.available()>0){
+//      a = mySerial.read();
      //if (a=='\0') continue;
-           data += a;
-      }    
-   }
-}  
-void wifiupload() {
-    post = "POST /pvcloud_backend/vse_add_value.php?account_id=24&app_id=86&api_key=dc0e291b03d34582d63bddbc0a5b98ee5bea913c&label=Gato";
-  post += "&value=";
-  post += consecutivo;
-  post += "&type=NUMERICO&captured_datetime= HTTP/1.1\r\nHost: costaricamakers.com:80\r\n\r\n"; //Secuencia de solicitud POST
+//           data += a;
+//      }    
+//   }
+//}  
 
-
-   mySerial.println(server); //Establecer conexión
-  leer();
-  
-  trama = "AT+CIPSEND=" + String(post.length()); //Comando AT para establecer la longitud del mensaje 
-  mySerial.println(trama); //Establecer longitud
-  leer();
-
-  mySerial.println(post); //Enviar solicitud de POST
-  leer();
-  delay(10000);
-  consecutivo++;
-}
-
-
-  
