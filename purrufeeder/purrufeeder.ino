@@ -1,8 +1,9 @@
-//CAT FEEDER 
+//CAT FEEDER
+//3.1 water will be on every time cat is detected (blink witout delay) but food restricted for two hours
 //3.0 change ESP to local program not default AT commands
 //2.10ESP8266 wifi uploading data to PVCloud
 //2.9 pin 3 and 2 changed by 0 and 1 for using it for ESP8266
-//2.8 water implementation 
+//2.8 water implementation
 //2.7 lost due to overwrite
 //2.6 better sequense to dispense avoiding jams
 //2.5 Cat is scare to vibration need to load delayed after cat left.
@@ -15,12 +16,21 @@
 #include <SoftwareSerial.h>
 //SoftwareSerial mySerial(3, 2); //Pines: RX->D3, TX->D2
 
-//pins declarations 
+//pins declarations
 int STBY = 10; //standby
 const int water = 0; // pin activation water
+// Variables will change :
+int CatAwayState = HIGH;             // waterState used to set the water relay off
+
+// Generally, you should use "unsigned long" for variables that hold time
+// The value will quickly become too large for an int to store
+unsigned long previousMillis = 0;        // will store last time water relay was updated
+
+// constants won't change :
+const long CatRestrictionInterval = 7200000;          // 7200000  2 hours delay to not overfeed cat can come during this time but not feed again
 
 //Motor A
-const int PWMA = 1; //Speed control 
+const int PWMA = 1; //Speed control
 const int AIN1 = 9; //Direction
 const int AIN2 = 8; //Direction
 
@@ -38,21 +48,9 @@ long duration;     //holds pulse width proporsional to distance
 int cm = 0;        // holds distance in centimeters
 
 
-//for wifi module ESP8266
-char a;
-String data;
-String rst = "AT+RST"; //Comando AT para reiniciar el ESP
-String modo = "AT+CWMODE=3"; //Comando AT para establecer el ESP en modo AP
-//String conectar = "AT+CWJAP=\"SED_InnovationCenter\",\"Innovation@IntelCR\""; //Comando AT para conectarse a una red inalámbrica
-String conectar = "AT+CWJAP=\"R2D2\",\"c3po1234\""; //Comando AT para conectarse a una red inalámbrica
-String server = "AT+CIPSTART=\"TCP\",\"160.153.48.166\",80";
-String trama; //Variable donde se almacenará el comando AT para establecer la longitud del mensaje
-String post = "";
-int consecutivo = 0;
 
-
-void setup(){
- // Serial.begin(9600);
+void setup() {
+  // Serial.begin(9600);
   pinMode(STBY, OUTPUT);
   pinMode(PWMA, OUTPUT);
   pinMode(AIN1, OUTPUT);
@@ -61,7 +59,7 @@ void setup(){
   pinMode(PWMB, OUTPUT);
   pinMode(BIN1, OUTPUT);
   pinMode(BIN2, OUTPUT);
-  pinMode(trig, OUTPUT); 
+  pinMode(trig, OUTPUT);
   pinMode(echo, INPUT);
   pinMode(led, OUTPUT);
   pinMode(ESP, OUTPUT);
@@ -69,116 +67,72 @@ void setup(){
   digitalWrite (water, HIGH);
 
 
-  
+
 }
-void loop(){
+void loop() {
 
 
-measure();       //subrutine to measure
+  measure();       //subrutine to measure
 
-//only one mearure cause false trigers /           
- if (cm < 17){
-          int dist_count = 0;
-          for (int i=0; i <= 10; i++){
-              measure();
-                if (cm < 19) {
-                    dist_count++;
-                }
+  //only one mearure cause false trigers, wil measure 10 times
+  if (cm < 17) {
+    int dist_count = 0;
+    for (int i = 0; i <= 10; i++) {
+      measure();
+      if (cm < 19) {
+        dist_count++;
+      }
+    }
+    if (dist_count > 9) {
 
-          }
+      digitalWrite (led, HIGH);  // led on board to show cat is been detected while waiting 10 minutes
+      delay(1000);
+      digitalWrite (led, LOW);
 
-      if (dist_count > 9) {  
 
- 
-    digitalWrite (led, HIGH);  // to show cat is been detected while waiting 10 minutes   
-   
-    delay(1000); //600000 delay of ten minutes before sequence to not scare the cat, 
- 
-     digitalWrite (led, LOW);
+      unsigned long currentMillis = millis();
+      if (currentMillis - previousMillis >= CatRestrictionInterval) {
+        previousMillis = currentMillis;
+        // 7200000  2 hours delay to not overfeed cat can come during this time but not feed again
+        dispense();
+      }
 
-// secuence to dispense cat food, if only one direction no vibrations cause jams.
-  move(2, 255, 1); //motor 2 vibrator, full speed, left
-  delay(400);
-  move(2, 0, 1); //motor 2 vibrador, 0 speed, left
-  delay(400);
-  move(2, 255, 0); //motor 2 vibrador, full speed, right
-  delay(400);
-  move(2, 0, 1); //motor 2 vibrador, 0 speed, left 
-  stop(); 
-        
-        
-        
-        for (int i=0; i <= 15; i++){ 
-        move(1, 255, 1); //motor 1, full speed, left
-        delay(85); //ms
-        move(1, 0, 1); //motor 1, 0 speed, left
 
-                 move(2, 255, 0); //motor 2 vibrador, full speed, right
-                 delay(50); 
-                 move(2, 0, 0);
-               // stop(); //stop
-        
-        //delay(30); //hold for 250ms until move again
-        move(1, 255, 0); //motor 1, full speed, right
-        delay(60);
-        move(1, 0, 0); //motor 1, 0 speed, right
+      digitalWrite (ESP, HIGH);  //sending pulse to ESP, for upload data to pvcloud (code is for that is in ESP)
+      delay(1000);
+      digitalWrite (ESP, LOW);
 
-                 move(2, 255, 1); //motor 2 vibrador, full speed, left
-                 delay(50); 
-                 move(2, 0, 1);
-                 stop();
-    
-        }
-        
 
-  move(2, 255, 1); //motor 2 vibrador, full speed, left
-  delay(600);
-  move(2, 0, 1); //motor 2 vibrador, 0 speed, left
-  stop();
+      digitalWrite(water, LOW);
+      delay(420000);   //water pump on 420000
+      digitalWrite(water, HIGH);
 
-  delay(30);  
-  
-  move(2, 255, 0); //motor 2 vibrador, full speed, left
-  delay(2000);
-  move(2, 0, 1); //motor 2 vibrador, 0 speed, left
-  stop();
+     // delay(7200000);       // 7200000  2 hours delay to not overfeed cat can come during this time but not feed again
 
- digitalWrite (ESP, HIGH);  //sending pulse to ESP, for upload data
- delay(1000);
- digitalWrite (ESP, LOW);
-  
- // wifiupload();
-  //delay(30000);
-  digitalWrite(water, LOW);
-  delay(420000);   //water pump on 420000
-  digitalWrite(water, HIGH);
-  delay(7200000);       // 7200000  2 hours delay to not overfeed cat can come during this time but not feed again
-
-           }
-
-           }
-           }
+    }
+  }
+}
 
 
 // subrutineto move dc motors
 
-void move(int motor, int speed, int direction){
-//Move specific motor at speed and direction
-//motor: 0 for B 1 for A
-//speed: 0 is off, and 255 is full speed
-//direction: 0 clockwise, 1 counter-clockwise
+void move(int motor, int speed, int direction) {
+  //Move specific motor at speed and direction
+  //motor: 0 for B 1 for A
+  //speed: 0 is off, and 255 is full speed
+  //direction: 0 clockwise, 1 counter-clockwise
   digitalWrite(STBY, HIGH); //disable standby
   boolean inPin1 = LOW;
   boolean inPin2 = HIGH;
-  if(direction == 1){
+  if (direction == 1) {
     inPin1 = HIGH;
     inPin2 = LOW;
   }
-  if(motor == 1){
+  if (motor == 1) {
     digitalWrite(AIN1, inPin1);
     digitalWrite(AIN2, inPin2);
     analogWrite(PWMA, speed);
-  }else{
+  } else {
     digitalWrite(BIN1, inPin1);
     digitalWrite(BIN2, inPin2);
     analogWrite(PWMB, speed);
@@ -187,25 +141,69 @@ void move(int motor, int speed, int direction){
 
 
 //subrutine to stop dc motors , both at the same time only one standby pin for both
-void stop(){
-//enable standby  
-  digitalWrite(STBY, LOW);  
+void stop() {
+  //enable standby
+  digitalWrite(STBY, LOW);
 }
 
 //subrutine to measure distance with ultrasonic sensor
-  int measure() {
-      digitalWrite(trig, LOW);
-      delay(10);
-      digitalWrite(trig, HIGH);
-      delay(10);
-      digitalWrite(trig, LOW); 
-      duration = pulseIn(echo, HIGH);
-      cm = microsecondsToCentimeters(duration); 
-          // Serial.print(cm);
-          // Serial.print("cm");
-          // Serial.println();
-      }
+int measure() {
+  digitalWrite(trig, LOW);
+  delay(10);
+  digitalWrite(trig, HIGH);
+  delay(10);
+  digitalWrite(trig, LOW);
+  duration = pulseIn(echo, HIGH);
+  cm = microsecondsToCentimeters(duration);
+  // Serial.print(cm);
+  // Serial.print("cm");
+  // Serial.println();
+}
 
+void dispense() {
+  // secuence to dispense cat food, if only one direction no vibrations cause jams.
+  move(2, 255, 1); //motor 2 vibrator, full speed, left
+  delay(400);
+  move(2, 0, 1); //motor 2 vibrador, 0 speed, left
+  delay(400);
+  move(2, 255, 0); //motor 2 vibrador, full speed, right
+  delay(400);
+  move(2, 0, 1); //motor 2 vibrador, 0 speed, left
+  stop();
+
+  for (int i = 0; i <= 15; i++) {
+    move(1, 255, 1); //motor 1, full speed, left
+    delay(85); //ms
+    move(1, 0, 1); //motor 1, 0 speed, left
+
+    move(2, 255, 0); //motor 2 vibrador, full speed, right
+    delay(50);
+    move(2, 0, 0);
+    // stop(); //stop
+    //delay(30); //hold for 250ms until move again
+    move(1, 255, 0); //motor 1, full speed, right
+    delay(60);
+    move(1, 0, 0); //motor 1, 0 speed, right
+
+    move(2, 255, 1); //motor 2 vibrador, full speed, left
+    delay(50);
+    move(2, 0, 1);
+    stop();
+  }
+
+
+  move(2, 255, 1); //motor 2 vibrador, full speed, left
+  delay(600);
+  move(2, 0, 1); //motor 2 vibrador, 0 speed, left
+  stop();
+
+  delay(30);
+
+  move(2, 255, 0); //motor 2 vibrador, full speed, left
+  delay(2000);
+  move(2, 0, 1); //motor 2 vibrador, 0 speed, left
+  stop();
+}
 
 //subrutine to calculate distance
 long microsecondsToCentimeters(long microseconds)
@@ -214,17 +212,17 @@ long microsecondsToCentimeters(long microseconds)
   // The ping travels out and back, so to find the distance of the
   // object we take half of the distance travelled.
   return microseconds / 29 / 2;
-  }
+}
 
- //Función para leer los datos enviados por el ESP
+//Función para leer los datos enviados por el ESP
 //void leer() {
 //  unsigned long start = millis();
 //  while (millis() - start < 10000) {
 //    while (mySerial.available()>0){
 //      a = mySerial.read();
-     //if (a=='\0') continue;
+//if (a=='\0') continue;
 //           data += a;
-//      }    
+//      }
 //   }
-//}  
+//}
 
